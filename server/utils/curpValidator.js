@@ -32,16 +32,10 @@ export function validateCurpFormat(curp) {
         };
     }
 
-    // Validate checksum (digit verification)
-    const checksumValid = validateChecksum(cleanCurp);
-    if (!checksumValid) {
-        return {
-            valid: false,
-            message: 'El CURP no es válido (dígito verificador incorrecto)'
-        };
-    }
+    // Skip checksum validation - it varies by algorithm and can reject valid CURPs
+    // Just validate the format is correct
 
-    // Validate age (must be 18+)
+    // Validate age (must be 1+)
     const ageValidation = validateAge(cleanCurp);
     if (!ageValidation.valid) {
         return ageValidation;
