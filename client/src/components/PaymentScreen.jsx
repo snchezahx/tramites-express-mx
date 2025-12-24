@@ -180,13 +180,13 @@ export default function PaymentScreen({ service, formData, onBack }) {
                         </p>
                         <div className="space-y-2">
                             <p className="text-sm text-blue-800">
-                                <strong>Banco:</strong> BBVA México
+                                <strong>Banco:</strong> Banco Azteca
                             </p>
                             <p className="text-sm text-blue-800">
-                                <strong>Cuenta:</strong> 1234 5678 9012 3456
+                                <strong>Cuenta Azteca:</strong> 4336 1357 2449 57
                             </p>
                             <p className="text-sm text-blue-800">
-                                <strong>CLABE:</strong> 012180001234567890
+                                <strong>CLABE (desde otro banco):</strong> 127180013572449578
                             </p>
                         </div>
                     </div>
