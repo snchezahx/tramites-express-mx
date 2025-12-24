@@ -41,9 +41,59 @@ export function validateCurpFormat(curp) {
         };
     }
 
+    // Validate age (must be 18+)
+    const ageValidation = validateAge(cleanCurp);
+    if (!ageValidation.valid) {
+        return ageValidation;
+    }
+
     return {
         valid: true,
         message: 'CURP válido'
+    };
+}
+
+/**
+ * Validates age from CURP (must be 18 or older)
+ * @param {string} curp - The CURP (18 characters)
+ * @returns {Object} - { valid: boolean, message: string }
+ */
+function validateAge(curp) {
+    // Extract birthdate from CURP (positions 4-9: AAMMDD)
+    const year = parseInt(curp.substring(4, 6));
+    const month = parseInt(curp.substring(6, 8));
+    const day = parseInt(curp.substring(8, 10));
+
+    // Determine full year (handle 1900s vs 2000s)
+    const currentYear = new Date().getFullYear();
+    const currentCentury = Math.floor(currentYear / 100) * 100;
+    const lastCentury = currentCentury - 100;
+
+    // If year > current year's last 2 digits, it's from last century
+    const fullYear = year > (currentYear % 100) ? lastCentury + year : currentCentury + year;
+
+    // Create birthdate
+    const birthDate = new Date(fullYear, month - 1, day);
+    const today = new Date();
+
+    // Calculate age
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+    }
+
+    if (age < 1) {
+        return {
+            valid: false,
+            message: 'CURP inválido - edad incorrecta'
+        };
+    }
+
+    return {
+        valid: true,
+        message: 'Edad verificada'
     };
 }
 
