@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import api from '../api';
 
 export default function PaymentScreen({ service, formData, onBack }) {
     const [order, setOrder] = useState(null);
@@ -20,7 +20,7 @@ export default function PaymentScreen({ service, formData, onBack }) {
 
     const createOrder = async () => {
         try {
-            const response = await axios.post('/api/orders/create', {
+            const response = await api.post('/api/orders/create', {
                 serviceType: service.name,
                 servicePrice: service.price,
                 curp: formData.curp,
@@ -68,7 +68,7 @@ export default function PaymentScreen({ service, formData, onBack }) {
             const formData = new FormData();
             formData.append('receipt', receiptFile);
 
-            await axios.post(`/api/orders/upload-receipt/${order.id}`, formData, {
+            await api.post(`/api/orders/upload-receipt/${order.id}`, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }
