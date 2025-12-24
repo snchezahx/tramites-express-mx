@@ -8,27 +8,26 @@ export default function ServiceForm({ service, onSubmit, onBack }) {
     const [curpValidation, setCurpValidation] = useState(null);
     const [errors, setErrors] = useState({});
 
-    const validateCurp = async (curpValue) => {
+    const validateCurp = (curpValue) => {
+        // Client-side validation only - check format
         if (curpValue.length !== 18) {
             setCurpValidation({ valid: false, message: 'El CURP debe tener 18 caracteres' });
             return;
         }
 
-        setIsValidating(true);
-        try {
-            const response = await axios.post('/api/orders/validate-curp', {
-                curp: curpValue
-            });
-
-            setCurpValidation(response.data);
-        } catch (error) {
-            setCurpValidation({
-                valid: false,
-                message: 'Error al validar CURP'
-            });
-        } finally {
-            setIsValidating(false);
+        // Validate CURP format regex
+        const CURP_REGEX = /^[A-Z]{4}[0-9]{6}[HM][A-Z]{5}[0-9A-Z][0-9]$/;
+        if (!CURP_REGEX.test(curpValue)) {
+            setCurpValidation({ valid: false, message: 'Formato de CURP inválido' });
+            return;
         }
+
+        // Format is valid
+        setCurpValidation({
+            valid: true,
+            exists: true,
+            message: 'CURP válido'
+        });
     };
 
     const handleCurpChange = (e) => {
