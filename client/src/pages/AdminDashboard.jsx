@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { supabase } from '../supabaseClient';
 
 export default function AdminDashboard() {
     const [orders, setOrders] = useState([]);
@@ -15,25 +15,25 @@ export default function AdminDashboard() {
     }, []);
 
     const checkAuth = async () => {
-        try {
-            const response = await axios.get('/api/admin/check-auth');
-            if (!response.data.authenticated) {
-                navigate('/admin-gestor-seguro');
-            }
-        } catch (err) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
             navigate('/admin-gestor-seguro');
         }
     };
 
     const fetchOrders = async () => {
         try {
-            const response = await axios.get('/api/admin/orders');
-            setOrders(response.data.orders);
+            const { data, error: fetchError } = await supabase
+                .from('orders')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (fetchError) throw fetchError;
+
+            setOrders(data || []);
         } catch (err) {
             setError('Error al cargar las órdenes');
-            if (err.response?.status === 401) {
-                navigate('/admin-gestor-seguro');
-            }
+            console.error(err);
         } finally {
             setLoading(false);
         }
@@ -43,33 +43,32 @@ export default function AdminDashboard() {
         const newStatus = currentStatus === 'Pendiente' ? 'Pagado' : 'Pendiente';
 
         try {
-            await axios.patch(`/api/admin/orders/${orderId}/status`, {
-                status: newStatus
-            });
+            const { error: updateError } = await supabase
+                .from('orders')
+                .update({ status: newStatus })
+                .eq('id', orderId);
+
+            if (updateError) throw updateError;
 
             // Update local state
             setOrders(orders.map(order =>
-                order._id === orderId ? { ...order, status: newStatus } : order
+                order.id === orderId ? { ...order, status: newStatus } : order
             ));
         } catch (err) {
             alert('Error al actualizar el estado');
+            console.error(err);
         }
     };
 
     const handleLogout = async () => {
-        try {
-            await axios.post('/api/admin/logout');
-            navigate('/admin-gestor-seguro');
-        } catch (err) {
-            console.error('Error during logout:', err);
-            navigate('/admin-gestor-seguro');
-        }
+        await supabase.auth.signOut();
+        navigate('/admin-gestor-seguro');
     };
 
     const filteredOrders = orders.filter(order =>
         order.curp.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.referenceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.serviceType.toLowerCase().includes(searchTerm.toLowerCase())
+        order.reference_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.service_type.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const formatDate = (dateString) => {
@@ -147,7 +146,7 @@ export default function AdminDashboard() {
                     <div className="bg-white rounded-xl p-6 shadow-md border-l-4 border-guinda">
                         <p className="text-sm text-gray-600 mb-1">Ingresos Totales</p>
                         <p className="text-3xl font-bold text-guinda">
-                            ${orders.reduce((sum, o) => sum + o.servicePrice, 0)}
+                            ${orders.reduce((sum, o) => sum + o.service_price, 0)}
                         </p>
                     </div>
                 </div>
@@ -194,29 +193,29 @@ export default function AdminDashboard() {
                                     </tr>
                                 ) : (
                                     filteredOrders.map((order) => (
-                                        <tr key={order._id} className="hover:bg-gray-50 transition-colors">
+                                        <tr key={order.id} className="hover:bg-gray-50 transition-colors">
                                             <td className="px-6 py-4 text-sm text-gray-900">
-                                                {formatDate(order.createdAt)}
+                                                {formatDate(order.created_at)}
                                             </td>
                                             <td className="px-6 py-4 text-sm text-gray-900 font-medium">
-                                                {order.serviceType}
+                                                {order.service_type}
                                             </td>
                                             <td className="px-6 py-4 text-sm text-gray-700 font-mono">
                                                 {order.curp}
                                             </td>
                                             <td className="px-6 py-4 text-sm text-guinda font-mono font-semibold">
-                                                {order.referenceNumber}
+                                                {order.reference_number}
                                             </td>
                                             <td className="px-6 py-4 text-sm text-gray-700">
-                                                {order.phoneNumber}
+                                                {order.phone_number}
                                             </td>
                                             <td className="px-6 py-4 text-sm text-gray-900 font-semibold">
-                                                ${order.servicePrice}
+                                                ${order.service_price}
                                             </td>
                                             <td className="px-6 py-4 text-sm">
-                                                {order.receiptUrl ? (
+                                                {order.receipt_url ? (
                                                     <a
-                                                        href={order.receiptUrl}
+                                                        href={order.receipt_url}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="text-blue-600 hover:text-blue-800 underline flex items-center"
@@ -238,10 +237,10 @@ export default function AdminDashboard() {
                                             </td>
                                             <td className="px-6 py-4 text-sm">
                                                 <button
-                                                    onClick={() => handleStatusChange(order._id, order.status)}
+                                                    onClick={() => handleStatusChange(order.id, order.status)}
                                                     className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${order.status === 'Pendiente'
-                                                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                                                            : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                                                        ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                                                        : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
                                                         }`}
                                                 >
                                                     {order.status === 'Pendiente' ? '✓ Marcar Pagado' : '⟲ Marcar Pendiente'}

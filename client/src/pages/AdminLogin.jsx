@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { supabase } from '../supabaseClient';
 
 export default function AdminLogin() {
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -15,17 +15,19 @@ export default function AdminLogin() {
         setLoading(true);
 
         try {
-            const response = await axios.post('/api/admin/login', {
-                username,
+            const { data, error: authError } = await supabase.auth.signInWithPassword({
+                email,
                 password
             });
 
-            if (response.data.success) {
+            if (authError) throw authError;
+
+            if (data.user) {
                 // Redirect to dashboard
                 navigate('/admin-gestor-seguro/dashboard');
             }
         } catch (err) {
-            setError(err.response?.data?.error || 'Error al iniciar sesión');
+            setError(err.message || 'Error al iniciar sesión');
         } finally {
             setLoading(false);
         }
@@ -57,16 +59,16 @@ export default function AdminLogin() {
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                Usuario
+                                Correo Electrónico
                             </label>
                             <input
-                                type="text"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
                                 required
                                 className="input-field"
-                                placeholder="Nombre de usuario"
-                                autoComplete="username"
+                                placeholder="admin@tramites.mx"
+                                autoComplete="email"
                             />
                         </div>
 

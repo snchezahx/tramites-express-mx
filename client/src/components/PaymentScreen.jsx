@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import api from '../api';
+import { supabase } from '../supabaseClient';
 
 export default function PaymentScreen({ service, formData, onBack }) {
     const [order, setOrder] = useState(null);
@@ -7,27 +7,44 @@ export default function PaymentScreen({ service, formData, onBack }) {
     const [uploading, setUploading] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [error, setError] = useState('');
-    const orderCreated = useRef(false); // Prevent duplicate creation
+    const orderCreated = useRef(false);
 
-    // Create order when component mounts
     useEffect(() => {
-        // Prevent duplicate creation in React strict mode
         if (orderCreated.current) return;
-
         orderCreated.current = true;
         createOrder();
     }, []);
 
     const createOrder = async () => {
         try {
-            const response = await api.post('/api/orders/create', {
-                serviceType: service.name,
-                servicePrice: service.price,
-                curp: formData.curp,
-                phoneNumber: formData.phoneNumber
-            });
+            // Generate reference number
+            const referenceNumber = 'REF-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9).toUpperCase();
 
-            setOrder(response.data.order);
+            // Insert directly into Supabase
+            const { data, error } = await supabase
+                .from('orders')
+                .insert([{
+                    reference_number: referenceNumber,
+                    service_type: service.name,
+                    service_price: service.price,
+                    curp: formData.curp.toUpperCase(),
+                    phone_number: formData.phoneNumber,
+                    status: 'Pendiente'
+                }])
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            setOrder({
+                id: data.id,
+                referenceNumber: data.reference_number,
+                serviceType: data.service_type,
+                servicePrice: data.service_price,
+                curp: data.curp,
+                phoneNumber: data.phone_number,
+                status: data.status
+            });
         } catch (err) {
             setError('Error al crear la orden. Por favor intenta nuevamente.');
             console.error(err);
@@ -65,14 +82,32 @@ export default function PaymentScreen({ service, formData, onBack }) {
         setError('');
 
         try {
-            const formData = new FormData();
-            formData.append('receipt', receiptFile);
+            // 1. Upload file to Supabase Storage
+            const fileExt = receiptFile.name.split('.').pop();
+            const fileName = `${order.referenceNumber}.${fileExt}`;
+            const filePath = fileName;
 
-            await api.post(`/api/orders/upload-receipt/${order.id}`, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                }
-            });
+            const { error: uploadError } = await supabase.storage
+                .from('payment-receipts')
+                .upload(filePath, receiptFile, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
+
+            if (uploadError) throw uploadError;
+
+            // 2. Get public URL
+            const { data: urlData } = supabase.storage
+                .from('payment-receipts')
+                .getPublicUrl(filePath);
+
+            // 3. Update order with receipt URL
+            const { error: updateError } = await supabase
+                .from('orders')
+                .update({ receipt_url: urlData.publicUrl })
+                .eq('id', order.id);
+
+            if (updateError) throw updateError;
 
             setSubmitted(true);
         } catch (err) {
